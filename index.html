@@ -3,19 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  
-  <!-- Apple iOS 原生 Web App (PWA) 配置標籤 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="健身重量紀錄">
+  <meta name="apple-mobile-web-app-title" content="健身即時紀錄">
   <meta name="theme-color" content="#000000">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180' fill='%23000'><rect width='180' height='180' rx='40' fill='%231C1C1E'/><path d='M45 90h90M55 70v40M125 70v40M40 80v20M140 80v20' stroke='%2330D158' stroke-width='10' stroke-linecap='round'/></svg>">
 
-  <title>健身重量紀錄 - iOS Workout</title>
-  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Phosphor Icons for iOS icons -->
+  <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
   <script>
@@ -32,12 +27,10 @@
               green: '#30D158',
               orange: '#FF9F0A',
               red: '#FF453A',
-              gray: '#8E8E93',
-              subtext: '#98989D'
+              label: '#FFFFFF',
+              secondaryLabel: '#8E8E93',
+              tertiaryLabel: '#48484A',
             }
-          },
-          fontFamily: {
-            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"Helvetica Neue"', 'sans-serif']
           }
         }
       }
@@ -45,819 +38,534 @@
   </script>
 
   <style>
-    /* iOS 原生觸控感優化 */
     * {
       -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
+      user-select: none;
+      box-sizing: border-box;
     }
-    
-    /* 支援 iPhone 瀏海與動態島安全區域 */
-    .pt-safe {
-      padding-top: env(safe-area-inset-top, 16px);
+    input, textarea {
+      user-select: auto;
     }
-    .pb-safe {
-      padding-bottom: calc(env(safe-area-inset-bottom, 24px) + 16px);
+    html, body {
+      background-color: #000000;
+      color: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow-x: hidden;
+      width: 100%;
     }
-    
-    /* 去除數字輸入框自帶箭頭 */
-    input[type=number]::-webkit-inner-spin-button,
-    input[type=number]::-webkit-outer-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
+    .safe-top { padding-top: max(env(safe-area-inset-top), 16px); }
+    .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 20px); }
+    .press-scale {
+      transition: transform 0.1s cubic-bezier(0, 0, 0.2, 1);
     }
-    input[type=number] {
-      -moz-appearance: textfield;
-    }
-
-    /* iOS 滾動條平滑隱藏 */
-    .hide-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .hide-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
+    .press-scale:active {
+      transform: scale(0.96);
     }
   </style>
 </head>
-<body class="bg-ios-bg text-white font-sans min-h-screen flex flex-col selection:bg-ios-blue selection:text-white antialiased">
+<body class="bg-ios-bg text-ios-label min-h-screen flex flex-col justify-between safe-top safe-bottom px-4 max-w-md mx-auto">
 
-  <!-- iOS 導航欄 (Navigation Bar with Frosted Glass) -->
-  <nav class="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-ios-separator/60 pt-safe px-4 pb-3">
-    <div class="max-w-md mx-auto flex items-center justify-between">
-      <div>
-        <div class="text-[11px] font-medium tracking-wide text-ios-subtext flex items-center gap-1">
-          <i class="ph-bold ph-calendar"></i>
-          <span id="navDateDisplay">載入中...</span>
-        </div>
-        <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-          健身即時紀錄
-          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-ios-green/15 text-ios-green font-semibold border border-ios-green/20">iPhone版</span>
-        </h1>
+  <!-- 頂部資訊列 -->
+  <div>
+    <div class="flex items-center justify-between pt-1 pb-2">
+      <div class="flex items-center space-x-1.5 text-ios-secondaryLabel text-xs font-medium">
+        <i class="ph-bold ph-calendar text-sm"></i>
+        <span id="currentDateText">2026年10月29日 星期四</span>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="btnOpenGuide" class="w-9 h-9 rounded-full bg-ios-card border border-ios-separator flex items-center justify-center text-ios-blue active:opacity-60 transition" title="加入主畫面指南">
-          <i class="ph-bold ph-info text-lg"></i>
+      <div class="flex items-center space-x-2">
+        <button onclick="toggleModal('infoModal')" class="w-8 h-8 rounded-full bg-ios-cardElevated flex items-center justify-center text-ios-blue press-scale">
+          <i class="ph-bold ph-info text-base"></i>
         </button>
-        <button id="btnHistory" class="w-9 h-9 rounded-full bg-ios-card border border-ios-separator flex items-center justify-center text-ios-blue active:opacity-60 transition" title="歷史與匯出">
-          <i class="ph-bold ph-list-dashes text-lg"></i>
+        <button onclick="toggleModal('historyModal')" class="w-8 h-8 rounded-full bg-ios-cardElevated flex items-center justify-center text-ios-blue press-scale">
+          <i class="ph-bold ph-list-dashes text-base"></i>
         </button>
       </div>
     </div>
-  </nav>
 
-  <!-- 主內容區域 -->
-  <main class="flex-1 max-w-md w-full mx-auto px-4 py-3 space-y-4">
+    <!-- 標題與分化切換按鈕 -->
+    <div class="flex items-center justify-between mt-1 mb-3">
+      <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+        健身即時紀錄
+        <span class="text-xs px-2 py-0.5 rounded-full bg-ios-green/20 text-ios-green font-semibold">iPhone版</span>
+      </h1>
+    </div>
 
-    <!-- 1. iOS 原生 Segmented Control 分段控制器 (切換分化組合) -->
-    <div class="p-1 bg-ios-card rounded-xl border border-ios-separator/50 flex">
-      <button id="segChestLegs" class="flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 bg-ios-cardElevated text-white shadow-sm">
-        <i class="ph-fill ph-flame text-ios-orange"></i>
+    <!-- 分段控制 (Segmented Control) -->
+    <div class="bg-ios-card p-1 rounded-xl flex items-center border border-ios-separator/50 mb-3 text-sm font-semibold">
+      <button id="tabChestLeg" onclick="setSplit('chestLeg')" class="flex-1 py-1.5 rounded-lg text-center transition-all bg-ios-cardElevated text-white shadow">
         胸 + 腿訓練日
       </button>
-      <button id="segShoulderBack" class="flex-1 py-2 rounded-lg text-xs font-medium text-ios-subtext transition-all duration-200 flex items-center justify-center gap-1.5 hover:text-white">
-        <i class="ph-bold ph-lightning text-ios-blue"></i>
+      <button id="tabShoulderBack" onclick="setSplit('shoulderBack')" class="flex-1 py-1.5 rounded-lg text-center transition-all text-ios-secondaryLabel">
         肩 + 背訓練日
       </button>
     </div>
 
-    <!-- 2. 動作快捷選擇 Chip List (水平滾動或網格，單手大按鈕) -->
-    <div class="bg-ios-card rounded-2xl p-3 border border-ios-separator/40 space-y-2">
-      <div class="flex items-center justify-between text-xs px-1 text-ios-subtext">
-        <span class="font-semibold uppercase tracking-wider text-[11px] flex items-center gap-1">
-          <i class="ph-bold ph-barbell text-ios-green"></i> 選擇訓練動作
+    <!-- 靈動島膠囊狀縮小版計時器 (預設隱藏) -->
+    <div id="minTimerPill" onclick="expandTimer()" class="hidden mb-3 bg-gradient-to-r from-emerald-950/80 to-zinc-900 border border-ios-green/50 px-4 py-2 rounded-full flex items-center justify-between cursor-pointer press-scale shadow-lg">
+      <div class="flex items-center space-x-2">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-ios-green opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-ios-green"></span>
         </span>
-        <span id="badgeCategory" class="text-ios-green font-medium">胸 + 腿</span>
+        <span class="text-xs text-ios-secondaryLabel font-medium">休息倒數中</span>
       </div>
-      
-      <!-- 動作標籤容器 -->
-      <div id="exerciseChipsContainer" class="flex flex-wrap gap-2 pt-1">
-        <!-- 由 JavaScript 動態生成按鈕 -->
+      <div class="flex items-center space-x-2">
+        <span id="minTimerVal" class="text-sm font-bold font-mono text-ios-green">01:30</span>
+        <i class="ph-bold ph-arrows-out-simple text-xs text-ios-secondaryLabel"></i>
       </div>
     </div>
 
-    <!-- 3. 上次紀錄提示 (Last PR / Last Weight) -->
-    <div id="prevSetCard" class="bg-ios-card/70 border border-ios-separator/40 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-xs">
-      <div class="flex items-center gap-2 overflow-hidden">
-        <span class="w-6 h-6 rounded-lg bg-ios-green/15 text-ios-green flex items-center justify-center flex-shrink-0 text-sm">
-          <i class="ph-bold ph-clock-counter-clockwise"></i>
-        </span>
-        <div class="truncate">
-          <span class="text-ios-subtext block text-[10px]">前次此動作紀錄</span>
-          <span id="prevRecordText" class="text-white font-medium">載入中...</span>
-        </div>
-      </div>
-      <button id="btnAutoFillPrev" class="px-2.5 py-1 rounded-lg bg-ios-cardElevated border border-ios-separator text-ios-blue text-[11px] font-semibold active:opacity-60 flex-shrink-0">
-        套用重量
-      </button>
-    </div>
-
-    <!-- 4. 極速填寫區塊 (專為 iPhone 單手點擊優化) -->
-    <div class="bg-ios-card rounded-2xl p-4 border border-ios-separator/60 shadow-xl space-y-4">
-      
-      <!-- 當前動作名稱與組數 -->
-      <div class="flex items-baseline justify-between border-b border-ios-separator/40 pb-3">
-        <div>
-          <span class="text-[11px] uppercase tracking-wider text-ios-subtext font-semibold">當前記錄項目</span>
-          <h2 id="currentExerciseTitle" class="text-2xl font-bold tracking-tight text-white mt-0.5">胸推</h2>
-        </div>
-        <div class="text-right">
-          <span class="text-[11px] uppercase tracking-wider text-ios-subtext font-semibold">目標組別</span>
-          <div id="currentSetLabel" class="text-lg font-bold text-ios-green">第 1 組</div>
-        </div>
-      </div>
-
-      <!-- 重量設定 (加大數字 + 微調按鈕) -->
-      <div>
-        <div class="flex justify-between items-center mb-1 text-xs">
-          <span class="font-semibold text-white">使用重量 (KG)</span>
-          <span class="text-[11px] text-ios-subtext">微調步進</span>
-        </div>
-        
-        <div class="grid grid-cols-6 gap-1.5 items-center">
-          <button id="btnWMinus5" class="h-12 rounded-xl bg-ios-cardElevated active:bg-ios-separator text-white font-semibold text-xs border border-ios-separator flex items-center justify-center">-5</button>
-          <button id="btnWMinus25" class="h-12 rounded-xl bg-ios-cardElevated active:bg-ios-separator text-white font-semibold text-xs border border-ios-separator flex items-center justify-center">-2.5</button>
-          
-          <input type="number" id="inputWeight" step="0.5" inputmode="decimal" placeholder="0" 
-            class="col-span-2 h-12 bg-black border border-ios-separator focus:border-ios-blue rounded-xl text-center text-2xl font-bold text-white focus:outline-none">
-          
-          <button id="btnWPlus25" class="h-12 rounded-xl bg-ios-cardElevated active:bg-ios-separator text-ios-green font-semibold text-xs border border-ios-separator flex items-center justify-center">+2.5</button>
-          <button id="btnWPlus5" class="h-12 rounded-xl bg-ios-cardElevated active:bg-ios-separator text-ios-green font-semibold text-xs border border-ios-separator flex items-center justify-center">+5</button>
-        </div>
-      </div>
-
-      <!-- 次數設定 (Stepper 格式) -->
-      <div>
-        <div class="flex justify-between items-center mb-1 text-xs">
-          <span class="font-semibold text-white">完成次數 (REPS)</span>
-          <div class="flex gap-1">
-            <button class="quick-rep px-2 py-0.5 rounded bg-ios-cardElevated text-[11px] font-medium text-ios-subtext active:text-white" data-val="8">8次</button>
-            <button class="quick-rep px-2 py-0.5 rounded bg-ios-cardElevated text-[11px] font-medium text-ios-subtext active:text-white" data-val="10">10次</button>
-            <button class="quick-rep px-2 py-0.5 rounded bg-ios-cardElevated text-[11px] font-medium text-ios-subtext active:text-white" data-val="12">12次</button>
+    <!-- 完整版組間休息倒數計時器 (可縮小、可關閉) -->
+    <div id="fullTimerCard" class="hidden mb-3 bg-ios-card border border-ios-green/30 rounded-2xl p-3.5 relative overflow-hidden transition-all">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-ios-green/15 flex items-center justify-center text-ios-green">
+            <i class="ph-bold ph-hourglass-high text-xl"></i>
+          </div>
+          <div>
+            <div class="text-[11px] text-ios-secondaryLabel font-medium">組間休息倒數</div>
+            <div id="fullTimerVal" class="text-2xl font-black font-mono tracking-tight text-ios-green">01:30</div>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button id="btnRMinus" class="w-12 h-12 rounded-xl bg-ios-cardElevated active:bg-ios-separator text-white font-bold text-xl border border-ios-separator flex items-center justify-center">
-            <i class="ph-bold ph-minus"></i>
+        <div class="flex items-center space-x-1.5">
+          <button onclick="addRestTime(30)" class="px-2.5 py-1.5 bg-ios-cardElevated rounded-lg text-xs font-semibold text-white press-scale border border-ios-separator">
+            +30秒
           </button>
-          <input type="number" id="inputReps" inputmode="numeric" placeholder="10" value="10" 
-            class="flex-1 h-12 bg-black border border-ios-separator focus:border-ios-blue rounded-xl text-center text-2xl font-bold text-white focus:outline-none">
-          <button id="btnRPlus" class="w-12 h-12 rounded-xl bg-ios-cardElevated active:bg-ios-separator text-white font-bold text-xl border border-ios-separator flex items-center justify-center">
-            <i class="ph-bold ph-plus"></i>
+          <button onclick="minimizeTimer()" title="縮小" class="w-8 h-8 rounded-lg bg-ios-cardElevated flex items-center justify-center text-ios-secondaryLabel press-scale border border-ios-separator">
+            <i class="ph-bold ph-arrows-in-simple text-sm"></i>
+          </button>
+          <button onclick="closeTimer()" title="結束" class="w-8 h-8 rounded-lg bg-ios-cardElevated flex items-center justify-center text-ios-red press-scale border border-ios-separator">
+            <i class="ph-bold ph-x text-sm"></i>
           </button>
         </div>
       </div>
+    </div>
 
-      <!-- 快捷體感標籤 (選填) -->
-      <div>
-        <div class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1">
-          <button class="tag-chip text-[11px] px-2.5 py-1 rounded-full bg-ios-cardElevated border border-ios-separator text-ios-subtext font-medium active:border-ios-blue" data-tag="順暢">👍 順暢</button>
-          <button class="tag-chip text-[11px] px-2.5 py-1 rounded-full bg-ios-cardElevated border border-ios-separator text-ios-subtext font-medium active:border-ios-blue" data-tag="力竭">🔥 力竭</button>
-          <button class="tag-chip text-[11px] px-2.5 py-1 rounded-full bg-ios-cardElevated border border-ios-separator text-ios-subtext font-medium active:border-ios-blue" data-tag="下次加重">📈 下次加重</button>
-          <button class="tag-chip text-[11px] px-2.5 py-1 rounded-full bg-ios-cardElevated border border-ios-separator text-ios-subtext font-medium active:border-ios-blue" data-tag="姿勢微調">🎯 姿勢調整</button>
+    <!-- 動作晶片選擇區 -->
+    <div class="bg-ios-card rounded-2xl p-3.5 border border-ios-separator/40 mb-3">
+      <div id="exerciseChips" class="grid grid-cols-4 gap-2">
+        <!-- JS 動態生成 -->
+      </div>
+    </div>
+
+    <!-- 前次紀錄提示卡 -->
+    <div class="bg-ios-card rounded-xl px-3.5 py-2.5 border border-ios-separator/40 mb-3 flex items-center justify-between text-xs">
+      <div class="flex items-center space-x-2">
+        <i class="ph-bold ph-clock-counter-clockwise text-ios-green text-sm"></i>
+        <div>
+          <span class="text-ios-secondaryLabel">前次動作紀錄：</span>
+          <span id="lastRecordLabel" class="font-semibold text-white">尚無紀錄</span>
         </div>
-        <input type="text" id="inputNotes" placeholder="自訂備註 (選填)..." class="w-full mt-1.5 py-1.5 px-3 rounded-lg bg-black/60 border border-ios-separator/60 text-xs text-white placeholder:text-ios-subtext/50 focus:outline-none focus:border-ios-blue">
+      </div>
+      <button id="applyLastBtn" onclick="applyLastRecord()" class="hidden px-2 py-1 bg-ios-cardElevated rounded text-ios-orange text-[11px] font-semibold press-scale">
+        套用數值
+      </button>
+    </div>
+
+    <!-- 核心數據輸入卡片 -->
+    <div class="bg-ios-card rounded-2xl p-4 border border-ios-separator/50 mb-3">
+      <div class="flex items-center justify-between pb-3 border-b border-ios-separator/40 mb-3.5">
+        <div>
+          <span class="text-[11px] text-ios-secondaryLabel block uppercase font-medium">當前記錄項目</span>
+          <span id="currentExName" class="text-xl font-black text-white">胸推</span>
+        </div>
+        <div class="text-right">
+          <span class="text-[11px] text-ios-secondaryLabel block uppercase font-medium">目標組別</span>
+          <span id="currentSetLabel" class="text-xl font-black text-ios-green">第 1 組</span>
+        </div>
       </div>
 
-      <!-- 核心儲存按鈕 (iOS 經典大按鈕) -->
-      <button id="btnLogSet" class="w-full py-4 rounded-xl bg-ios-green active:opacity-80 text-black font-bold text-base tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-ios-green/20 transition transform active:scale-[0.98]">
-        <i class="ph-bold ph-check text-xl"></i>
+      <!-- 重量設定區 -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between text-xs mb-2">
+          <span class="text-ios-secondaryLabel font-semibold">使用重量 (KG)</span>
+          <span class="text-ios-secondaryLabel text-[11px]">微調步進</span>
+        </div>
+        <div class="grid grid-cols-5 gap-1.5 items-center w-full">
+          <button onclick="adjustWeight(-5)" class="h-12 rounded-xl bg-ios-cardElevated text-xs font-bold text-ios-secondaryLabel press-scale border border-ios-separator/50">-5</button>
+          <button onclick="adjustWeight(-2.5)" class="h-12 rounded-xl bg-ios-cardElevated text-xs font-bold text-ios-secondaryLabel press-scale border border-ios-separator/50">-2.5</button>
+          <div class="h-12 rounded-xl bg-black border border-ios-separator flex items-center justify-center">
+            <input type="number" id="weightInput" value="30" step="0.5" class="w-full text-center text-xl font-black bg-transparent text-white focus:outline-none" />
+          </div>
+          <button onclick="adjustWeight(2.5)" class="h-12 rounded-xl bg-ios-cardElevated text-xs font-bold text-ios-green press-scale border border-ios-separator/50">+2.5</button>
+          <button onclick="adjustWeight(5)" class="h-12 rounded-xl bg-ios-cardElevated text-xs font-bold text-ios-green press-scale border border-ios-separator/50">+5</button>
+        </div>
+      </div>
+
+      <!-- 次數設定區 (修正：按鈕自適應不爆框，快捷鍵改為 3、5、7 次) -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between text-xs mb-2">
+          <span class="text-ios-secondaryLabel font-semibold">完成次數 (REPS)</span>
+          <!-- 快捷鍵修改為 3次 5次 7次 -->
+          <div class="flex space-x-1.5">
+            <button onclick="setQuickReps(3)" class="px-2 py-0.5 rounded bg-ios-cardElevated text-[11px] font-semibold text-ios-secondaryLabel press-scale">3 次</button>
+            <button onclick="setQuickReps(5)" class="px-2 py-0.5 rounded bg-ios-cardElevated text-[11px] font-semibold text-ios-secondaryLabel press-scale">5 次</button>
+            <button onclick="setQuickReps(7)" class="px-2 py-0.5 rounded bg-ios-cardElevated text-[11px] font-semibold text-ios-secondaryLabel press-scale">7 次</button>
+          </div>
+        </div>
+        <!-- 採用百分比彈性格狀排版，完美收納於螢幕寬度內 -->
+        <div class="grid grid-cols-5 gap-1.5 items-center w-full">
+          <button onclick="adjustReps(-1)" class="col-span-1 h-12 rounded-xl bg-ios-cardElevated text-2xl font-bold text-white press-scale border border-ios-separator/50 flex items-center justify-center">-</button>
+          <div class="col-span-3 h-12 rounded-xl bg-black border border-ios-separator flex items-center justify-center">
+            <input type="number" id="repsInput" value="5" class="w-full text-center text-xl font-black bg-transparent text-white focus:outline-none" />
+          </div>
+          <button onclick="adjustReps(1)" class="col-span-1 h-12 rounded-xl bg-ios-cardElevated text-2xl font-bold text-white press-scale border border-ios-separator/50 flex items-center justify-center">+</button>
+        </div>
+      </div>
+
+      <!-- 體感標籤快捷 -->
+      <div class="flex flex-wrap gap-1.5 mb-3">
+        <button onclick="toggleTag('順暢')" class="tag-btn text-xs px-2.5 py-1 rounded-lg bg-ios-cardElevated text-ios-secondaryLabel press-scale">👍 順暢</button>
+        <button onclick="toggleTag('力竭')" class="tag-btn text-xs px-2.5 py-1 rounded-lg bg-ios-cardElevated text-ios-secondaryLabel press-scale">🔥 力竭</button>
+        <button onclick="toggleTag('下次加重')" class="tag-btn text-xs px-2.5 py-1 rounded-lg bg-ios-cardElevated text-ios-secondaryLabel press-scale">📈 下次加重</button>
+        <button onclick="toggleTag('姿勢調整')" class="tag-btn text-xs px-2.5 py-1 rounded-lg bg-ios-cardElevated text-ios-secondaryLabel press-scale">🎯 姿勢調整</button>
+      </div>
+
+      <input type="text" id="noteInput" placeholder="自訂備註 (選填)..." class="w-full bg-ios-cardElevated border border-ios-separator/40 rounded-xl px-3 py-2 text-xs text-white placeholder-ios-secondaryLabel/60 focus:outline-none mb-3" />
+
+      <!-- 主送出按鈕 -->
+      <button onclick="recordCurrentSet()" class="w-full py-3.5 rounded-2xl bg-ios-green text-black font-extrabold text-base flex items-center justify-center space-x-2 press-scale shadow-lg shadow-ios-green/20">
+        <i class="ph-bold ph-check text-lg"></i>
         <span>記錄此組 (自動啟動計時)</span>
       </button>
-
-      <!-- 快速啟動休息計時 -->
-      <div class="flex items-center justify-between pt-1 text-xs text-ios-subtext border-t border-ios-separator/30">
-        <span class="flex items-center gap-1"><i class="ph-bold ph-timer"></i> 預設休息:</span>
-        <div class="flex gap-1.5">
-          <button class="quick-timer px-2.5 py-1 rounded-lg bg-ios-cardElevated border border-ios-separator text-white active:bg-ios-separator" data-sec="60">60秒</button>
-          <button class="quick-timer px-2.5 py-1 rounded-lg bg-ios-cardElevated border border-ios-separator text-white active:bg-ios-separator" data-sec="90">90秒</button>
-          <button class="quick-timer px-2.5 py-1 rounded-lg bg-ios-cardElevated border border-ios-separator text-white active:bg-ios-separator" data-sec="120">120秒</button>
-        </div>
-      </div>
     </div>
 
-    <!-- 5. 今日訓練概覽列表 -->
-    <div class="bg-ios-card rounded-2xl p-4 border border-ios-separator/60 space-y-3">
-      <div class="flex items-center justify-between">
-        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
-          <i class="ph-bold ph-chart-bar text-ios-blue"></i>
-          今日訓練成果
-        </h3>
-        <div class="text-xs text-ios-subtext">
-          已完成 <span id="todaySetsCount" class="text-ios-green font-bold">0</span> 組 
-          · 總量 <span id="todayTotalVolume" class="text-white font-bold font-mono">0</span> kg
-        </div>
-      </div>
-
-      <div id="todaySetsList" class="space-y-2 max-h-60 overflow-y-auto pr-1 text-xs">
-        <!-- 動態渲染今日各動作組別 -->
-      </div>
-    </div>
-  </main>
-
-  <!-- iOS 浮動休息計時器 (浮貼於底部安全區域之上) -->
-  <div id="floatingTimer" class="fixed bottom-safe left-4 right-4 max-w-md mx-auto bg-ios-card/95 backdrop-blur-xl border border-ios-green/40 rounded-2xl p-3.5 shadow-2xl flex items-center justify-between z-40 transform translate-y-36 transition-transform duration-300">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-ios-green/15 text-ios-green flex items-center justify-center text-xl font-bold border border-ios-green/30 animate-pulse">
-        <i class="ph-bold ph-hourglass"></i>
-      </div>
-      <div>
-        <div class="text-[10px] text-ios-subtext uppercase font-semibold">組間休息倒數</div>
-        <div id="timerDisplay" class="text-2xl font-black font-mono text-ios-green tracking-wider">01:30</div>
-      </div>
-    </div>
-    <div class="flex items-center gap-1.5">
-      <button id="btnTimerAdd30" class="px-2.5 py-1.5 rounded-lg bg-ios-cardElevated text-xs font-semibold text-white border border-ios-separator active:opacity-60">+30秒</button>
-      <button id="btnTimerStop" class="w-8 h-8 rounded-lg bg-ios-cardElevated text-ios-subtext hover:text-ios-red flex items-center justify-center text-lg active:opacity-60">
-        <i class="ph-bold ph-x"></i>
-      </button>
-    </div>
-  </div>
-
-  <!-- 歷史紀錄與匯出 Modal -->
-  <div id="historyModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4">
-    <div class="bg-ios-card border-t sm:border border-ios-separator rounded-t-3xl sm:rounded-3xl max-w-md w-full mx-auto max-h-[85vh] flex flex-col overflow-hidden pb-safe">
-      <!-- Modal Header -->
-      <div class="p-4 border-b border-ios-separator flex items-center justify-between">
-        <h3 class="text-base font-bold text-white flex items-center gap-2">
-          <i class="ph-bold ph-database text-ios-blue"></i>
-          訓練歷史與資料匯出
-        </h3>
-        <button id="btnCloseHistory" class="w-8 h-8 rounded-full bg-ios-cardElevated flex items-center justify-center text-ios-subtext hover:text-white">
-          <i class="ph-bold ph-x"></i>
-        </button>
-      </div>
-
-      <!-- Action Bar -->
-      <div class="p-3 bg-ios-cardElevated/50 flex gap-2 border-b border-ios-separator text-xs">
-        <button id="btnExportCSV" class="flex-1 py-2 px-3 rounded-xl bg-ios-blue text-white font-semibold flex items-center justify-center gap-1.5 active:opacity-75">
-          <i class="ph-bold ph-file-arrow-down"></i> 下載 CSV 檔案
-        </button>
-        <button id="btnCopyCSV" class="flex-1 py-2 px-3 rounded-xl bg-ios-cardElevated border border-ios-separator text-white font-semibold flex items-center justify-center gap-1.5 active:opacity-75">
-          <i class="ph-bold ph-copy"></i> 複製貼至試算表
-        </button>
-      </div>
-
-      <!-- History List -->
-      <div id="historyListContainer" class="flex-1 overflow-y-auto p-4 space-y-2 text-xs">
-        <!-- JS 填入歷史紀錄 -->
-      </div>
-
-      <!-- Modal Footer -->
-      <div class="p-3 border-t border-ios-separator flex justify-between items-center text-xs text-ios-subtext px-4">
-        <span id="totalHistoryCount">共 0 筆紀錄</span>
-        <button id="btnClearData" class="text-ios-red hover:underline text-[11px]">清空本機資料</button>
+    <!-- 底部休息時間預設設定 -->
+    <div class="flex items-center justify-between px-1 text-xs text-ios-secondaryLabel">
+      <span class="flex items-center gap-1"><i class="ph ph-timer"></i> 預設休息：</span>
+      <div class="flex space-x-1.5">
+        <button onclick="setDefaultRest(60)" class="rest-preset-btn px-2.5 py-1 rounded-md bg-ios-card press-scale border border-ios-separator/40">60秒</button>
+        <button onclick="setDefaultRest(90)" class="rest-preset-btn px-2.5 py-1 rounded-md bg-ios-card text-ios-green font-bold press-scale border border-ios-separator/40">90秒</button>
+        <button onclick="setDefaultRest(120)" class="rest-preset-btn px-2.5 py-1 rounded-md bg-ios-card press-scale border border-ios-separator/40">120秒</button>
       </div>
     </div>
   </div>
 
-  <!-- iOS 加入主畫面教學 Modal -->
-  <div id="guideModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4">
-    <div class="bg-ios-card border-t sm:border border-ios-separator rounded-t-3xl sm:rounded-3xl max-w-md w-full mx-auto p-5 pb-safe space-y-4">
-      <div class="flex items-center justify-between">
-        <h3 class="text-base font-bold text-white flex items-center gap-2">
-          <i class="ph-bold ph-apple-logo text-white"></i>
-          如何將此 App 加到 iPhone 主畫面
+  <!-- 歷史與匯出彈窗 (History Modal) -->
+  <div id="historyModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex flex-col justify-end">
+    <div class="bg-ios-card rounded-t-3xl p-5 max-h-[85vh] flex flex-col border-t border-ios-separator">
+      <div class="flex justify-between items-center pb-3 border-b border-ios-separator">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="ph-bold ph-clock-counter-clockwise"></i> 訓練紀錄清單
         </h3>
-        <button id="btnCloseGuide" class="w-8 h-8 rounded-full bg-ios-cardElevated flex items-center justify-center text-ios-subtext">
-          <i class="ph-bold ph-x"></i>
+        <button onclick="toggleModal('historyModal')" class="text-ios-secondaryLabel text-sm press-scale">關閉</button>
+      </div>
+      <div id="historyListContainer" class="overflow-y-auto flex-1 my-3 space-y-2 text-xs">
+        <!-- 動態塞入 -->
+      </div>
+      <div class="grid grid-cols-2 gap-2 pt-2 border-t border-ios-separator">
+        <button onclick="exportCSV()" class="py-2.5 bg-ios-cardElevated rounded-xl font-bold text-white flex items-center justify-center gap-1.5 press-scale border border-ios-separator">
+          <i class="ph-bold ph-download-simple"></i> 下載 CSV
+        </button>
+        <button onclick="copyToClipboard()" class="py-2.5 bg-ios-blue text-white rounded-xl font-bold flex items-center justify-center gap-1.5 press-scale">
+          <i class="ph-bold ph-copy"></i> 複製貼上表格
         </button>
       </div>
-      <p class="text-xs text-ios-subtext leading-relaxed">
-        將此網頁加到 iPhone 桌面後，即可全螢幕獨立運行、無 Safari 網址列干擾，隨開即用！
-      </p>
-      <div class="space-y-3 text-xs">
-        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-ios-cardElevated border border-ios-separator">
-          <div class="w-7 h-7 rounded-lg bg-ios-blue/20 text-ios-blue flex items-center justify-center font-bold">1</div>
-          <span>在 Safari 底部點擊 <strong>「分享」</strong> 按鈕 (<i class="ph-bold ph-share-network inline"></i> 或方框箭頭)。</span>
-        </div>
-        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-ios-cardElevated border border-ios-separator">
-          <div class="w-7 h-7 rounded-lg bg-ios-blue/20 text-ios-blue flex items-center justify-center font-bold">2</div>
-          <span>在分享選單中向下滑動，選擇 <strong>「加入主畫面」</strong> (Add to Home Screen)。</span>
-        </div>
-        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-ios-cardElevated border border-ios-separator">
-          <div class="w-7 h-7 rounded-lg bg-ios-blue/20 text-ios-blue flex items-center justify-center font-bold">3</div>
-          <span>點擊右上角 <strong>「新增」</strong>，即可從桌面直接點開！</span>
-        </div>
-      </div>
-      <button id="btnConfirmGuide" class="w-full py-3 rounded-xl bg-ios-blue text-white font-bold text-xs">
-        我知道了
-      </button>
     </div>
   </div>
 
-  <!-- iOS 輕量 Toast 彈窗 -->
-  <div id="iosToast" class="fixed top-6 left-1/2 -translate-x-1/2 bg-ios-cardElevated/95 backdrop-blur-lg border border-ios-separator text-white px-4 py-2.5 rounded-full shadow-2xl text-xs font-semibold z-50 pointer-events-none opacity-0 transition-all duration-300 flex items-center gap-2">
-    <i id="toastIcon" class="ph-fill ph-check-circle text-ios-green text-base"></i>
-    <span id="toastMsg">已成功記錄！</span>
+  <!-- 說明彈窗 (Info Modal) -->
+  <div id="infoModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-ios-card rounded-2xl p-5 max-w-xs w-full border border-ios-separator text-xs">
+      <h3 class="text-base font-bold text-white mb-2">使用小提示</h3>
+      <p class="text-ios-secondaryLabel mb-2">1. 點擊「記錄此組」後自動儲存並開始休息計時。</p>
+      <p class="text-ios-secondaryLabel mb-2">2. 計時器若擋住視線，可點擊右上角縮小為膠囊藥丸，點擊藥丸隨時展開。</p>
+      <p class="text-ios-secondaryLabel mb-4">3. 記錄隨時可於右上角清單匯出並同步至 Google 試算表。</p>
+      <button onclick="toggleModal('infoModal')" class="w-full py-2 bg-ios-cardElevated rounded-xl font-bold text-white press-scale">我知道了</button>
+    </div>
   </div>
 
   <script>
-    // --- 訓練動作定義 (依用戶指定的合併排程) ---
-    const ROUTINES = {
-      CHEST_LEGS: {
-        id: 'CHEST_LEGS',
-        title: '胸 + 腿訓練日',
-        badge: '胸 + 腿',
-        exercises: ['胸推', '胸飛鳥', '反向飛鳥', '二頭彎舉', '腿推', '腿後勾', '膝屈伸']
-      },
-      SHOULDER_BACK: {
-        id: 'SHOULDER_BACK',
-        title: '肩 + 背訓練日',
-        badge: '肩 + 背',
-        exercises: ['肩推', '側平舉', '三頭下壓', '正握下拉', '反握下拉', '坐姿划船']
-      }
+    const menus = {
+      chestLeg: ['胸推', '胸飛鳥', '反向飛鳥', '二頭彎舉', '腿推', '腿後勾', '膝屈伸'],
+      shoulderBack: ['肩推', '側平舉', '三頭下壓', '正握下拉', '反握下拉', '坐姿划船']
     };
 
-    // 狀態
-    let currentRoutineKey = 'CHEST_LEGS';
-    let currentExercise = ROUTINES.CHEST_LEGS.exercises[0];
-    let workoutRecords = []; // 本機所有紀錄
-    let timerCountdown = 0;
-    let timerInterval = null;
+    let state = {
+      split: 'chestLeg',
+      exercise: '胸推',
+      weight: 30,
+      reps: 5,
+      set: 1,
+      tags: [],
+      defaultRest: 90,
+      restLeft: 0,
+      timerId: null,
+      isTimerMinimized: false
+    };
 
-    // 觸覺震動模擬 (iOS 支援 navigator.vibrate 或替代反饋)
-    function triggerHaptic(type = 'light') {
-      if ('vibrate' in navigator) {
-        if (type === 'success') {
-          navigator.vibrate([15, 40, 15]);
-        } else {
-          navigator.vibrate(20);
-        }
-      }
+    const d = new Date();
+    document.getElementById('currentDateText').innerText = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 星期${['日','一','二','三','四','五','六'][d.getDay()]}`;
+
+    function init() {
+      renderChips();
+      updateExerciseUI();
     }
 
-    // 格式化今日日期 (YYYY/MM/DD 星期X)
-    function getTodayString() {
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const d = String(now.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
+    function setSplit(split) {
+      state.split = split;
+      state.exercise = menus[split][0];
+      state.set = 1;
+
+      document.getElementById('tabChestLeg').className = split === 'chestLeg'
+        ? 'flex-1 py-1.5 rounded-lg text-center transition-all bg-ios-cardElevated text-white shadow'
+        : 'flex-1 py-1.5 rounded-lg text-center transition-all text-ios-secondaryLabel';
+
+      document.getElementById('tabShoulderBack').className = split === 'shoulderBack'
+        ? 'flex-1 py-1.5 rounded-lg text-center transition-all bg-ios-cardElevated text-white shadow'
+        : 'flex-1 py-1.5 rounded-lg text-center transition-all text-ios-secondaryLabel';
+
+      renderChips();
+      updateExerciseUI();
     }
 
-    function getTodayFormattedDisplay() {
-      const now = new Date();
-      const days = ['日', '一', '二', '三', '四', '五', '六'];
-      const y = now.getFullYear();
-      const m = now.getMonth() + 1;
-      const d = now.getDate();
-      const dayName = days[now.getDay()];
-      return `${y}年${m}月${d}日 星期${dayName}`;
-    }
-
-    // iOS Toast 提示
-    function showToast(text, isError = false) {
-      const toast = document.getElementById('iosToast');
-      const toastMsg = document.getElementById('toastMsg');
-      const toastIcon = document.getElementById('toastIcon');
-
-      toastMsg.innerText = text;
-      if (isError) {
-        toastIcon.className = 'ph-fill ph-warning-circle text-ios-red text-base';
-      } else {
-        toastIcon.className = 'ph-fill ph-check-circle text-ios-green text-base';
-      }
-
-      toast.classList.remove('opacity-0', '-translate-y-2');
-      setTimeout(() => {
-        toast.classList.add('opacity-0', '-translate-y-2');
-      }, 2000);
-    }
-
-    // 載入與儲存 LocalStorage
-    function loadRecords() {
-      try {
-        const raw = localStorage.getItem('ios_gym_tracker_records');
-        if (raw) workoutRecords = JSON.parse(raw);
-      } catch (err) {
-        workoutRecords = [];
-      }
-    }
-
-    function saveRecords() {
-      try {
-        localStorage.setItem('ios_gym_tracker_records', JSON.stringify(workoutRecords));
-      } catch (e) {
-        console.error('儲存失敗', e);
-      }
-    }
-
-    // 渲染動作按鈕 (Chips)
-    function renderExerciseChips() {
-      const container = document.getElementById('exerciseChipsContainer');
+    function renderChips() {
+      const container = document.getElementById('exerciseChips');
       container.innerHTML = '';
-      const list = ROUTINES[currentRoutineKey].exercises;
-
-      list.forEach(item => {
+      menus[state.split].forEach(ex => {
         const btn = document.createElement('button');
-        const isActive = item === currentExercise;
-        btn.className = `px-3.5 py-2 rounded-xl text-xs font-semibold transition duration-150 border active:scale-95 ${
-          isActive 
-            ? 'bg-ios-green text-black border-ios-green font-bold shadow-md' 
-            : 'bg-ios-cardElevated text-ios-subtext border-ios-separator hover:text-white'
+        const isActive = ex === state.exercise;
+        btn.className = `py-2 px-1 text-xs font-semibold rounded-xl transition-all press-scale truncate ${
+          isActive ? 'bg-ios-green text-black font-bold shadow-md shadow-ios-green/20' : 'bg-ios-cardElevated text-ios-secondaryLabel'
         }`;
-        btn.innerText = item;
-        btn.onclick = () => {
-          triggerHaptic('light');
-          currentExercise = item;
-          renderExerciseChips();
-          refreshExerciseContext();
-        };
+        btn.innerText = ex;
+        btn.onclick = () => selectExercise(ex);
         container.appendChild(btn);
       });
-
-      document.getElementById('currentExerciseTitle').innerText = currentExercise;
-      refreshExerciseContext();
     }
 
-    // 更新當前動作的組數與前次記錄
-    function refreshExerciseContext() {
-      const today = getTodayString();
-      
-      // 計算今日已完成第幾組
-      const todaySets = workoutRecords.filter(r => r.date === today && r.exercise === currentExercise);
-      const nextSetIndex = todaySets.length + 1;
-      document.getElementById('currentSetLabel').innerText = `第 ${nextSetIndex} 組`;
+    function selectExercise(ex) {
+      state.exercise = ex;
+      state.set = 1;
+      renderChips();
+      updateExerciseUI();
+    }
 
-      // 查詢上一筆紀錄 (包含過去日期或今天的上一組)
-      const matches = workoutRecords.filter(r => r.exercise === currentExercise);
-      const prevText = document.getElementById('prevRecordText');
-      const btnAuto = document.getElementById('btnAutoFillPrev');
+    function updateExerciseUI() {
+      document.getElementById('currentExName').innerText = state.exercise;
+      document.getElementById('currentSetLabel').innerText = `第 ${state.set} 組`;
 
-      if (matches.length > 0) {
-        const last = matches[matches.length - 1];
-        prevText.innerText = `${last.weight} kg × ${last.reps} 次 (${last.date === today ? '剛剛' : last.date})`;
-        btnAuto.style.display = 'inline-block';
-        btnAuto.onclick = () => {
-          triggerHaptic('light');
-          document.getElementById('inputWeight').value = last.weight;
-          document.getElementById('inputReps').value = last.reps;
-          showToast(`已套用上次數值: ${last.weight}kg`);
-        };
+      const last = JSON.parse(localStorage.getItem(`last_${state.exercise}`) || 'null');
+      const label = document.getElementById('lastRecordLabel');
+      const applyBtn = document.getElementById('applyLastBtn');
 
-        // 如果輸入欄目前為空，自動預填上一次的重量
-        const wInput = document.getElementById('inputWeight');
-        if (!wInput.value) {
-          wInput.value = last.weight;
+      if (last) {
+        label.innerText = `${last.weight} kg × ${last.reps} 次`;
+        applyBtn.classList.remove('hidden');
+      } else {
+        label.innerText = '尚無紀錄 (首次訓練)';
+        applyBtn.classList.add('hidden');
+      }
+    }
+
+    function applyLastRecord() {
+      const last = JSON.parse(localStorage.getItem(`last_${state.exercise}`) || 'null');
+      if (last) {
+        state.weight = parseFloat(last.weight);
+        state.reps = parseInt(last.reps);
+        document.getElementById('weightInput').value = state.weight;
+        document.getElementById('repsInput').value = state.reps;
+      }
+    }
+
+    function adjustWeight(delta) {
+      const input = document.getElementById('weightInput');
+      let val = Math.max(0, (parseFloat(input.value) || 0) + delta);
+      input.value = val;
+      state.weight = val;
+    }
+
+    function adjustReps(delta) {
+      const input = document.getElementById('repsInput');
+      let val = Math.max(1, (parseInt(input.value) || 0) + delta);
+      input.value = val;
+      state.reps = val;
+    }
+
+    function setQuickReps(r) {
+      document.getElementById('repsInput').value = r;
+      state.reps = r;
+    }
+
+    function toggleTag(tagName) {
+      const idx = state.tags.indexOf(tagName);
+      if (idx > -1) {
+        state.tags.splice(idx, 1);
+      } else {
+        state.tags.push(tagName);
+      }
+      document.querySelectorAll('.tag-btn').forEach(btn => {
+        const text = btn.innerText;
+        if (text.includes(tagName)) {
+          if (state.tags.includes(tagName)) {
+            btn.classList.add('bg-ios-orange/20', 'text-ios-orange', 'border-ios-orange');
+          } else {
+            btn.classList.remove('bg-ios-orange/20', 'text-ios-orange', 'border-ios-orange');
+          }
         }
-      } else {
-        prevText.innerText = '尚無紀錄 (首次訓練)';
-        btnAuto.style.display = 'none';
-      }
-
-      renderTodayList();
+      });
     }
 
-    // 切換分化 (胸腿 vs 肩背)
-    function switchRoutine(routineKey) {
-      triggerHaptic('light');
-      currentRoutineKey = routineKey;
-      const segChest = document.getElementById('segChestLegs');
-      const segShoulder = document.getElementById('segShoulderBack');
-      const badge = document.getElementById('badgeCategory');
+    function recordCurrentSet() {
+      state.weight = parseFloat(document.getElementById('weightInput').value) || 0;
+      state.reps = parseInt(document.getElementById('repsInput').value) || 0;
+      const note = document.getElementById('noteInput').value.trim();
+      const fullNote = [...state.tags, note].filter(Boolean).join('、');
 
-      if (routineKey === 'CHEST_LEGS') {
-        segChest.className = 'flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 bg-ios-cardElevated text-white shadow-sm';
-        segShoulder.className = 'flex-1 py-2 rounded-lg text-xs font-medium text-ios-subtext transition-all duration-200 flex items-center justify-center gap-1.5 hover:text-white';
-        badge.innerText = '胸 + 腿';
-      } else {
-        segShoulder.className = 'flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 bg-ios-cardElevated text-white shadow-sm';
-        segChest.className = 'flex-1 py-2 rounded-lg text-xs font-medium text-ios-subtext transition-all duration-200 flex items-center justify-center gap-1.5 hover:text-white';
-        badge.innerText = '肩 + 背';
-      }
-
-      currentExercise = ROUTINES[routineKey].exercises[0];
-      renderExerciseChips();
-    }
-
-    // 儲存單組紀錄 (核心操作)
-    function logCurrentSet() {
-      const weightVal = parseFloat(document.getElementById('inputWeight').value);
-      const repsVal = parseInt(document.getElementById('inputReps').value, 10);
-      const notesVal = document.getElementById('inputNotes').value.trim();
-      const today = getTodayString();
-
-      if (isNaN(weightVal) || weightVal < 0) {
-        showToast('請輸入有效重量', true);
-        document.getElementById('inputWeight').focus();
-        return;
-      }
-      if (isNaN(repsVal) || repsVal <= 0) {
-        showToast('請輸入有效次數', true);
-        document.getElementById('inputReps').focus();
-        return;
-      }
-
-      const todaySets = workoutRecords.filter(r => r.date === today && r.exercise === currentExercise);
-      const setNumber = todaySets.length + 1;
-
-      const recordItem = {
-        id: Date.now().toString(),
-        date: today,
-        routine: ROUTINES[currentRoutineKey].title,
-        exercise: currentExercise,
-        set: setNumber,
-        weight: weightVal,
-        reps: repsVal,
-        volume: weightVal * repsVal,
-        notes: notesVal,
+      const record = {
+        date: document.getElementById('currentDateText').innerText,
+        split: state.split === 'chestLeg' ? '胸 + 腿訓練日' : '肩 + 背訓練日',
+        exercise: state.exercise,
+        set: state.set,
+        weight: state.weight,
+        reps: state.reps,
+        volume: state.weight * state.reps,
+        note: fullNote,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
-      workoutRecords.push(recordItem);
-      saveRecords();
-      triggerHaptic('success');
-      showToast(`已記錄：${currentExercise} 第 ${setNumber} 組！`);
+      // 存入 LocalStorage
+      localStorage.setItem(`last_${state.exercise}`, JSON.stringify(record));
+      let history = JSON.parse(localStorage.getItem('workout_history') || '[]');
+      history.unshift(record);
+      localStorage.setItem('workout_history', JSON.stringify(history));
 
-      // 清空備註欄，次數保持，組數自動加一
-      document.getElementById('inputNotes').value = '';
+      // 震動回饋 (iOS Safari 支援時)
+      if (navigator.vibrate) navigator.vibrate(40);
 
-      refreshExerciseContext();
+      // 遞增組數
+      state.set += 1;
+      document.getElementById('currentSetLabel').innerText = `第 ${state.set} 組`;
+      document.getElementById('noteInput').value = '';
+      state.tags = [];
+      document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('bg-ios-orange/20', 'text-ios-orange', 'border-ios-orange'));
 
-      // 自動啟動 90 秒休息計時器
-      startRestTimer(90);
+      // 自動啟動組間休息計時
+      startTimer(state.defaultRest);
+      updateExerciseUI();
     }
 
-    // 渲染今日訓練結果清單
-    function renderTodayList() {
-      const today = getTodayString();
-      const todayItems = workoutRecords.filter(r => r.date === today);
-      const listEl = document.getElementById('todaySetsList');
-      const setsCountEl = document.getElementById('todaySetsCount');
-      const totalVolEl = document.getElementById('todayTotalVolume');
-
-      setsCountEl.innerText = todayItems.length;
-      const totalVol = todayItems.reduce((sum, item) => sum + item.volume, 0);
-      totalVolEl.innerText = totalVol.toLocaleString();
-
-      if (todayItems.length === 0) {
-        listEl.innerHTML = `<div class="text-center py-4 text-ios-subtext text-xs">今天尚未有組別，開始運動並記錄吧！</div>`;
-        return;
-      }
-
-      // 依時間倒序顯示
-      listEl.innerHTML = '';
-      [...todayItems].reverse().forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'flex items-center justify-between p-2.5 rounded-xl bg-ios-cardElevated/70 border border-ios-separator/40';
-        row.innerHTML = `
-          <div>
-            <div class="font-bold text-white flex items-center gap-1.5">
-              <span>${item.exercise}</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-ios-separator/60 text-ios-green font-mono">第${item.set}組</span>
-            </div>
-            <div class="text-[11px] text-ios-subtext mt-0.5">
-              <span class="text-white font-semibold font-mono">${item.weight} kg</span> × ${item.reps} 次 
-              ${item.notes ? `· <span class="text-ios-blue">${item.notes}</span>` : ''}
-              <span class="text-[10px] text-ios-subtext/80 ml-1">(${item.timestamp})</span>
-            </div>
-          </div>
-          <button class="delete-set-btn w-7 h-7 rounded-lg bg-ios-separator/40 hover:bg-ios-red/20 hover:text-ios-red text-ios-subtext flex items-center justify-center transition" data-id="${item.id}">
-            <i class="ph-bold ph-trash"></i>
-          </button>
-        `;
-        listEl.appendChild(row);
-      });
-
-      // 綁定刪除事件
-      listEl.querySelectorAll('.delete-set-btn').forEach(btn => {
-        btn.onclick = () => {
-          const id = btn.getAttribute('data-id');
-          workoutRecords = workoutRecords.filter(r => r.id !== id);
-          saveRecords();
-          refreshExerciseContext();
-          showToast('已刪除該筆紀錄');
-        };
-      });
-    }
-
-    // --- 組間休息計時器邏輯 ---
-    function startRestTimer(seconds) {
-      clearInterval(timerInterval);
-      timerCountdown = seconds;
-      const bar = document.getElementById('floatingTimer');
-      bar.classList.remove('translate-y-36');
+    // 計時器邏輯（支援縮小與還原）
+    function startTimer(seconds) {
+      clearInterval(state.timerId);
+      state.restLeft = seconds;
       updateTimerDisplay();
 
-      timerInterval = setInterval(() => {
-        timerCountdown--;
-        if (timerCountdown <= 0) {
-          clearInterval(timerInterval);
-          bar.classList.add('translate-y-36');
-          triggerHaptic('success');
-          showToast('⏰ 休息時間到！該開始下一組了！');
-        } else {
-          updateTimerDisplay();
+      if (state.isTimerMinimized) {
+        document.getElementById('minTimerPill').classList.remove('hidden');
+        document.getElementById('fullTimerCard').classList.add('hidden');
+      } else {
+        document.getElementById('fullTimerCard').classList.remove('hidden');
+        document.getElementById('minTimerPill').classList.add('hidden');
+      }
+
+      state.timerId = setInterval(() => {
+        state.restLeft--;
+        updateTimerDisplay();
+        if (state.restLeft <= 0) {
+          clearInterval(state.timerId);
+          closeTimer();
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
         }
       }, 1000);
     }
 
     function updateTimerDisplay() {
-      const min = Math.floor(timerCountdown / 60);
-      const sec = timerCountdown % 60;
-      document.getElementById('timerDisplay').innerText = 
-        `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+      const m = Math.floor(state.restLeft / 60).toString().padStart(2, '0');
+      const s = (state.restLeft % 60).toString().padStart(2, '0');
+      const text = `${m}:${s}`;
+      document.getElementById('fullTimerVal').innerText = text;
+      document.getElementById('minTimerVal').innerText = text;
     }
 
-    // 關閉計時器
-    document.getElementById('btnTimerStop').onclick = () => {
-      clearInterval(timerInterval);
-      document.getElementById('floatingTimer').classList.add('translate-y-36');
-    };
-
-    document.getElementById('btnTimerAdd30').onclick = () => {
-      timerCountdown += 30;
+    function addRestTime(sec) {
+      state.restLeft += sec;
       updateTimerDisplay();
-      triggerHaptic('light');
-    };
+    }
 
-    // 快速計時按鈕綁定
-    document.querySelectorAll('.quick-timer').forEach(btn => {
-      btn.onclick = () => {
-        const sec = parseInt(btn.getAttribute('data-sec'), 10);
-        startRestTimer(sec);
-      };
-    });
+    function minimizeTimer() {
+      state.isTimerMinimized = true;
+      document.getElementById('fullTimerCard').classList.add('hidden');
+      document.getElementById('minTimerPill').classList.remove('hidden');
+    }
 
-    // --- 重量與次數加減步進 ---
-    function setupStepper() {
-      const wInput = document.getElementById('inputWeight');
-      const rInput = document.getElementById('inputReps');
+    function expandTimer() {
+      state.isTimerMinimized = false;
+      document.getElementById('minTimerPill').classList.add('hidden');
+      document.getElementById('fullTimerCard').classList.remove('hidden');
+    }
 
-      document.getElementById('btnWMinus5').onclick = () => {
-        wInput.value = Math.max(0, (parseFloat(wInput.value || 0) - 5));
-        triggerHaptic('light');
-      };
-      document.getElementById('btnWMinus25').onclick = () => {
-        wInput.value = Math.max(0, (parseFloat(wInput.value || 0) - 2.5));
-        triggerHaptic('light');
-      };
-      document.getElementById('btnWPlus25').onclick = () => {
-        wInput.value = (parseFloat(wInput.value || 0) + 2.5);
-        triggerHaptic('light');
-      };
-      document.getElementById('btnWPlus5').onclick = () => {
-        wInput.value = (parseFloat(wInput.value || 0) + 5);
-        triggerHaptic('light');
-      };
+    function closeTimer() {
+      clearInterval(state.timerId);
+      document.getElementById('fullTimerCard').classList.add('hidden');
+      document.getElementById('minTimerPill').classList.add('hidden');
+    }
 
-      document.getElementById('btnRMinus').onclick = () => {
-        rInput.value = Math.max(1, (parseInt(rInput.value || 1, 10) - 1));
-        triggerHaptic('light');
-      };
-      document.getElementById('btnRPlus').onclick = () => {
-        rInput.value = (parseInt(rInput.value || 0, 10) + 1);
-        triggerHaptic('light');
-      };
-
-      // 次數快速標籤
-      document.querySelectorAll('.quick-rep').forEach(btn => {
-        btn.onclick = () => {
-          rInput.value = btn.getAttribute('data-val');
-          triggerHaptic('light');
-        };
-      });
-
-      // 體感快速標籤
-      document.querySelectorAll('.tag-chip').forEach(btn => {
-        btn.onclick = () => {
-          const tag = btn.getAttribute('data-tag');
-          const noteInput = document.getElementById('inputNotes');
-          if (noteInput.value.includes(tag)) {
-            noteInput.value = noteInput.value.replace(tag, '').trim();
-          } else {
-            noteInput.value = noteInput.value ? `${noteInput.value} ${tag}` : tag;
-          }
-          triggerHaptic('light');
-        };
+    function setDefaultRest(sec) {
+      state.defaultRest = sec;
+      document.querySelectorAll('.rest-preset-btn').forEach(b => {
+        b.className = b.innerText.includes(sec)
+          ? 'rest-preset-btn px-2.5 py-1 rounded-md bg-ios-card text-ios-green font-bold press-scale border border-ios-separator/40'
+          : 'rest-preset-btn px-2.5 py-1 rounded-md bg-ios-card text-ios-secondaryLabel press-scale border border-ios-separator/40';
       });
     }
 
-    // --- 歷史紀錄 Modal & CSV 匯出 ---
-    function openHistoryModal() {
-      const modal = document.getElementById('historyModal');
-      const listEl = document.getElementById('historyListContainer');
-      const countEl = document.getElementById('totalHistoryCount');
-
-      countEl.innerText = `共 ${workoutRecords.length} 筆紀錄`;
-
-      if (workoutRecords.length === 0) {
-        listEl.innerHTML = `<div class="text-center py-8 text-ios-subtext">尚無任何歷史記錄</div>`;
+    function toggleModal(id) {
+      const el = document.getElementById(id);
+      if (el.classList.contains('hidden')) {
+        if (id === 'historyModal') renderHistoryList();
+        el.classList.remove('hidden');
       } else {
-        listEl.innerHTML = '';
-        [...workoutRecords].reverse().forEach(item => {
-          const card = document.createElement('div');
-          card.className = 'p-3 rounded-xl bg-ios-cardElevated border border-ios-separator/60 flex items-center justify-between';
-          card.innerHTML = `
-            <div>
-              <div class="font-bold text-white">${item.date} · ${item.exercise}</div>
-              <div class="text-ios-subtext text-[11px] mt-0.5">
-                第 ${item.set} 組 | <span class="text-white font-semibold">${item.weight} kg</span> × ${item.reps} 次 
-                ${item.notes ? `(${item.notes})` : ''}
-              </div>
-            </div>
-            <span class="text-[10px] text-ios-subtext">${item.timestamp || ''}</span>
-          `;
-          listEl.appendChild(card);
-        });
+        el.classList.add('hidden');
       }
-
-      modal.classList.remove('hidden');
     }
 
-    function exportToCSV() {
-      if (workoutRecords.length === 0) {
-        showToast('目前尚無資料可匯出', true);
+    function renderHistoryList() {
+      const container = document.getElementById('historyListContainer');
+      const list = JSON.parse(localStorage.getItem('workout_history') || '[]');
+      if (list.length === 0) {
+        container.innerHTML = '<div class="text-center py-6 text-ios-secondaryLabel">尚未有訓練紀錄</div>';
         return;
       }
-      let csvContent = 'data:text/csv;charset=utf-8,\uFEFF';
-      csvContent += '日期,訓練組合,動作名稱,組別,使用重量(kg),完成次數,總負荷量(kg),備註,時間\n';
+      container.innerHTML = list.map(item => `
+        <div class="bg-ios-cardElevated p-2.5 rounded-xl border border-ios-separator/40 flex justify-between items-center">
+          <div>
+            <div class="font-bold text-white text-sm">${item.exercise} <span class="text-xs text-ios-green font-normal">第 ${item.set} 組</span></div>
+            <div class="text-[11px] text-ios-secondaryLabel">${item.weight} kg × ${item.reps} 次 • 總負荷 ${item.volume} kg ${item.note ? '• ' + item.note : ''}</div>
+          </div>
+          <div class="text-[11px] text-ios-secondaryLabel font-mono">${item.timestamp}</div>
+        </div>
+      `).join('');
+    }
 
-      workoutRecords.forEach(r => {
-        csvContent += `"${r.date}","${r.routine}","${r.exercise}",${r.set},${r.weight},${r.reps},${r.volume},"${r.notes || ''}","${r.timestamp || ''}"\n`;
+    function exportCSV() {
+      const list = JSON.parse(localStorage.getItem('workout_history') || '[]');
+      if (list.length === 0) return alert('無紀錄可匯出');
+      let csv = '日期,訓練類別,健身項目,組別,使用重量(kg),每組次數,總負荷(kg),備註,時間\n';
+      list.forEach(r => {
+        csv += `"${r.date}","${r.split}","${r.exercise}",${r.set},${r.weight},${r.reps},${r.volume},"${r.note}","${r.timestamp}"\n`;
       });
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `健身紀錄_${getTodayString()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showToast('CSV 匯出成功！');
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `健身紀錄_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
     }
 
     function copyToClipboard() {
-      if (workoutRecords.length === 0) {
-        showToast('目前尚無資料可複製', true);
-        return;
-      }
-      let tsv = '日期\t訓練組合\t動作\t組別\t重量(kg)\t次數\t總量(kg)\t備註\n';
-      workoutRecords.forEach(r => {
-        tsv += `${r.date}\t${r.routine}\t${r.exercise}\t${r.set}\t${r.weight}\t${r.reps}\t${r.volume}\t${r.notes || ''}\n`;
+      const list = JSON.parse(localStorage.getItem('workout_history') || '[]');
+      if (list.length === 0) return alert('無紀錄可複製');
+      let text = '日期\t訓練類別\t健身項目\t組別\t使用重量\t次數\t備註\n';
+      list.forEach(r => {
+        text += `${r.date}\t${r.split}\t${r.exercise}\t第${r.set}組\t${r.weight}kg\t${r.reps}次\t${r.note}\n`;
       });
-
-      // 使用安全複製法相容 iFrame 環境
-      const textArea = document.createElement('textarea');
-      textArea.value = tsv;
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        showToast('已複製到剪貼簿，可直接貼至 Google 試算表！');
-      } catch (err) {
-        showToast('複製失敗，請使用 CSV 匯出', true);
-      }
-      document.body.removeChild(textArea);
+      navigator.clipboard.writeText(text).then(() => {
+        alert('已複製表格內容！可直接開啟 Google 試算表貼上。');
+      });
     }
 
-    // 初始化所有事件監聽
-    window.addEventListener('DOMContentLoaded', () => {
-      loadRecords();
-      document.getElementById('navDateDisplay').innerText = getTodayFormattedDisplay();
-
-      // 分段切換
-      document.getElementById('segChestLegs').onclick = () => switchRoutine('CHEST_LEGS');
-      document.getElementById('segShoulderBack').onclick = () => switchRoutine('SHOULDER_BACK');
-
-      // 核心記錄按鈕
-      document.getElementById('btnLogSet').onclick = logCurrentSet;
-
-      // 歷史 Modal
-      document.getElementById('btnHistory').onclick = openHistoryModal;
-      document.getElementById('btnCloseHistory').onclick = () => {
-        document.getElementById('historyModal').classList.add('hidden');
-      };
-
-      // 教學 Modal
-      document.getElementById('btnOpenGuide').onclick = () => {
-        document.getElementById('guideModal').classList.remove('hidden');
-      };
-      document.getElementById('btnCloseGuide').onclick = () => {
-        document.getElementById('guideModal').classList.add('hidden');
-      };
-      document.getElementById('btnConfirmGuide').onclick = () => {
-        document.getElementById('guideModal').classList.add('hidden');
-      };
-
-      // 匯出功能
-      document.getElementById('btnExportCSV').onclick = exportToCSV;
-      document.getElementById('btnCopyCSV').onclick = copyToClipboard;
-
-      // 清空紀錄
-      document.getElementById('btnClearData').onclick = () => {
-        if (confirm('確定要清空本機儲存的所有歷史紀錄嗎？')) {
-          workoutRecords = [];
-          saveRecords();
-          refreshExerciseContext();
-          openHistoryModal();
-          showToast('已清空所有紀錄');
-        }
-      };
-
-      setupStepper();
-      renderExerciseChips();
-    });
+    init();
   </script>
 </body>
 </html>
